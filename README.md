@@ -1,10 +1,10 @@
-# Dijital Ders Ajandam 📚🚀
+# Dijital Ders Ajandam 
 
 Stitch tasarımı baz alınarak geliştirilmiş, modern ve kapsamlı öğrenci çalışma, deneme analizi, ödev ve aralıklı tekrar (Spaced Repetition) takip uygulaması.
 
 ---
 
-## 📱 Ekranlar ve Özellikler
+##  Ekranlar ve Özellikler
 1. **Bugün (Gösterge Paneli)**: Günlük çalışma süresi, Ebbinghaus eğrisine göre aktif tekrar kartları, yaklaşan ödevler ve hızlı eylemler.
 2. **Deneme Sınavı Girişi**: TYT/AYT net hesaplayıcı (Doğru/Yanlış oranına göre anlık net çıktısı ve hedef takibi).
 3. **Yazılı Sınavı Ekle**: Okul sınavları, konu kapsamı, hedef not ve akıllı sınav hatırlatıcıları.
@@ -16,11 +16,3 @@ Stitch tasarımı baz alınarak geliştirilmiş, modern ve kapsamlı öğrenci �
 
 ---
 
-## ⚙️ GitHub Actions ile Otomatik APK İndirme
-
-Bu proje **GitHub Actions** ile entegre edilmiştir. Bilgisayarınızda Flutter veya Android Studio kurulu olmasına gerek yoktur!
-
-### APK Nasıl Alınır?
-1. Repoda **Actions** sekmesine tıklayın.
-2. Soldaki **Build Android APK** iş akışını seçin (push edildiğinde otomatik çalışır).
-3. Derleme tamamlandığında **Artifacts** bölümünden `Dijital-Ders-Ajandam-release-apk` dosyasını telefonunuza indirin!
