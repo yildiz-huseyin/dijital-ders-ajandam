@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/app_models.dart';
+import '../providers/homework_provider.dart';
 import 'add_homework_screen.dart';
 
 class HomeworkListScreen extends StatefulWidget {
@@ -9,184 +11,273 @@ class HomeworkListScreen extends StatefulWidget {
   State<HomeworkListScreen> createState() => _HomeworkListScreenState();
 }
 
-class _HomeworkListScreenState extends State<HomeworkListScreen> {
-  final List<HomeworkItem> _allHomeworks = [
-    HomeworkItem(
-      id: '1',
-      title: 'Laboratuvar Raporu: Asit-Baz Titrasyonu',
-      subject: 'Kimya',
-      deadline: 'Yarın 17:00 (Son 22 Saat)',
-      detail: 'Grafikler ve hata analizi bölümü eksik. Rapor formatına uygun çıktısı alınacak.',
-      progress: 70,
-      priority: 'urgent',
-    ),
-    HomeworkItem(
-      id: '2',
-      title: '50 Soru: Çemberde Açılar ve Teğetler',
-      subject: 'Geometri',
-      deadline: 'Cuma 23:59 (3 Gün Kaldı)',
-      detail: '20 / 50 soru tamamlandı. Karekök yayınları test 4-5.',
-      progress: 40,
-      priority: 'normal',
-    ),
-    HomeworkItem(
-      id: '3',
-      title: 'Cumhuriyet Dönemi Şiir Özeti',
-      subject: 'Edebiyat',
-      deadline: 'Pazartesi 09:00',
-      detail: 'Yedi Meşaleciler ve Garip Akımı karşılaştırma tablosu.',
-      progress: 10,
-      priority: 'normal',
-    ),
-    HomeworkItem(
-      id: '4',
-      title: 'Mekanik Enerji Çıkmış Sorular Fasikülü',
-      subject: 'Fizik',
-      deadline: '10 Gün Kaldı',
-      detail: 'ÖSYM son 10 yıl sınav soruları çözümü.',
-      progress: 0,
-      priority: 'normal',
-    ),
-  ];
+class _HomeworkListScreenState extends State<HomeworkListScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-  String _filter = 'Tümü';
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filter == 'Tümü'
-        ? _allHomeworks
-        : _filter == 'Tamamlananlar'
-            ? _allHomeworks.where((h) => h.isCompleted).toList()
-            : _allHomeworks.where((h) => !h.isCompleted).toList();
-
+    final provider = context.watch<HomeworkProvider>();
     return Scaffold(
-      backgroundColor: ThemeColors.surface,
+      backgroundColor: AppColors.surface,
       appBar: AppBar(
-        backgroundColor: ThemeColors.surface,
-        elevation: 0,
-        title: const Text('Ödev ve Görev Takibi', style: TextStyle(color: ThemeColors.onSurface, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Ödev ve Görev Takibi',
+          style: TextStyle(
+              fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: 'Bekleyen (${provider.pendingItems.length})'),
+            Tab(text: 'Devam (${provider.inProgressItems.length})'),
+            Tab(text: 'Tamam (${provider.completedItems.length})'),
+          ],
+        ),
       ),
+      body: provider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : TabBarView(
+              controller: _tabController,
+              children: [
+                _HomeworkTab(
+                    items: provider.pendingItems, provider: provider),
+                _HomeworkTab(
+                    items: provider.inProgressItems, provider: provider),
+                _HomeworkTab(
+                    items: provider.completedItems, provider: provider),
+              ],
+            ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const AddHomeworkScreen()));
-        },
-        backgroundColor: ThemeColors.primary,
-        foregroundColor: Colors.white,
+        onPressed: () => showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) => const AddHomeworkScreen(),
+        ).then((_) => provider.loadAll()),
         icon: const Icon(Icons.add),
         label: const Text('Yeni Ödev'),
-      ),
-      body: Column(
-        children: [
-          // Filter Chips
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: ['Tümü', 'Devam Edenler', 'Tamamlananlar'].map((f) {
-                final selected = _filter == f;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(f),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _filter = f),
-                    selectedColor: ThemeColors.primary.withOpacity(0.15),
-                    labelStyle: TextStyle(
-                      color: selected ? ThemeColors.primary : ThemeColors.onSurfaceVariant,
-                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = filtered[index];
-                return _buildTaskCard(item);
-              },
-            ),
-          ),
-        ],
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
       ),
     );
   }
+}
 
-  Widget _buildTaskCard(HomeworkItem item) {
-    final bool isUrgent = item.priority == 'urgent';
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: ThemeColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border(left: BorderSide(color: item.isCompleted ? Colors.green : (isUrgent ? ThemeColors.error : ThemeColors.secondary), width: 4)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2))
-        ],
+class _HomeworkTab extends StatelessWidget {
+  final List<HomeworkItem> items;
+  final HomeworkProvider provider;
+
+  const _HomeworkTab({required this.items, required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle_outline,
+                size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('Bu kategoride ödev yok 🎉',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: provider.loadAll,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: items.length,
+        itemBuilder: (ctx, i) {
+          final hw = items[i];
+          return _HomeworkCard(hw: hw, provider: provider);
+        },
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isUrgent ? ThemeColors.errorContainer : ThemeColors.surfaceContainer,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(item.deadline, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isUrgent ? ThemeColors.onErrorContainer : ThemeColors.onSurfaceVariant)),
-              ),
-              Checkbox(
-                value: item.isCompleted,
-                activeColor: Colors.green,
-                onChanged: (val) {
-                  setState(() {
-                    item.isCompleted = val ?? false;
-                  });
-                },
-              ),
-            ],
-          ),
-          Text(item.subject.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isUrgent ? ThemeColors.error : ThemeColors.secondary)),
-          const SizedBox(height: 2),
-          Text(
-            item.title,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: ThemeColors.onSurface,
-              decoration: item.isCompleted ? TextDecoration.lineThrough : null,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(item.detail, style: const TextStyle(fontSize: 12, color: ThemeColors.onSurfaceVariant)),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: item.isCompleted ? 1.0 : (item.progress / 100),
-                    minHeight: 6,
-                    backgroundColor: ThemeColors.surfaceContainer,
-                    valueColor: AlwaysStoppedAnimation<Color>(item.isCompleted ? Colors.green : (isUrgent ? ThemeColors.error : ThemeColors.secondary)),
+    );
+  }
+}
+
+class _HomeworkCard extends StatelessWidget {
+  final HomeworkItem hw;
+  final HomeworkProvider provider;
+
+  const _HomeworkCard({required this.hw, required this.provider});
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+  Color _priorityColor() {
+    switch (hw.priority) {
+      case HomeworkPriority.high:
+        return Colors.red;
+      case HomeworkPriority.medium:
+        return Colors.orange;
+      case HomeworkPriority.low:
+        return Colors.green;
+    }
+  }
+
+  String _priorityLabel() {
+    switch (hw.priority) {
+      case HomeworkPriority.high:
+        return 'Yüksek';
+      case HomeworkPriority.medium:
+        return 'Orta';
+      case HomeworkPriority.low:
+        return 'Düşük';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isOverdue = hw.dueDate.isBefore(DateTime.now()) &&
+        hw.status != HomeworkStatus.completed;
+    return Dismissible(
+      key: Key('hw_${hw.id}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) => provider.deleteHomework(hw.id!),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.cardBg,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: isOverdue ? Colors.red.shade200 : Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    hw.title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      decoration: hw.status == HomeworkStatus.completed
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                item.isCompleted ? '%100' : '%' + item.progress.toString(),
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: ThemeColors.onSurfaceVariant),
-              ),
-            ],
-          )
-        ],
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _priorityColor().withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _priorityLabel(),
+                    style: TextStyle(
+                        color: _priorityColor(),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              hw.subject,
+              style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13),
+            ),
+            if (hw.description != null && hw.description!.isNotEmpty) ...
+              [
+                const SizedBox(height: 4),
+                Text(
+                  hw.description!,
+                  style: const TextStyle(
+                      color: AppColors.textSecondary, fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(
+                  Icons.calendar_today,
+                  size: 13,
+                  color: isOverdue ? Colors.red : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _formatDate(hw.dueDate),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          isOverdue ? Colors.red : AppColors.textSecondary),
+                ),
+                const Spacer(),
+                if (hw.status != HomeworkStatus.completed)
+                  Row(
+                    children: [
+                      if (hw.status != HomeworkStatus.inProgress)
+                        TextButton(
+                          onPressed: () => provider.updateStatus(
+                              hw.id!, HomeworkStatus.inProgress),
+                          style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(0, 0)),
+                          child: const Text('Başla',
+                              style: TextStyle(fontSize: 12)),
+                        ),
+                      const SizedBox(width: 4),
+                      ElevatedButton(
+                        onPressed: () => provider.updateStatus(
+                            hw.id!, HomeworkStatus.completed),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          minimumSize: const Size(0, 0),
+                          textStyle: const TextStyle(fontSize: 12),
+                        ),
+                        child: const Text('Tamamla'),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

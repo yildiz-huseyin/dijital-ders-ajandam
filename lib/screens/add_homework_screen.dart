@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/app_models.dart';
+import '../providers/homework_provider.dart';
 
 class AddHomeworkScreen extends StatefulWidget {
   const AddHomeworkScreen({super.key});
@@ -9,148 +11,201 @@ class AddHomeworkScreen extends StatefulWidget {
 }
 
 class _AddHomeworkScreenState extends State<AddHomeworkScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _detailController = TextEditingController();
-  final _deadlineController = TextEditingController(text: 'Yarın 18:00');
+  final _descController = TextEditingController();
   String _selectedSubject = 'Matematik';
-  String _priority = 'Normal';
+  HomeworkPriority _priority = HomeworkPriority.medium;
+  DateTime _dueDate = DateTime.now().add(const Duration(days: 1));
+  bool _isSaving = false;
 
   final List<String> _subjects = [
-    'Matematik',
-    'Geometri',
-    'Fizik',
-    'Kimya',
-    'Biyoloji',
-    'Türkçe & Edebiyat',
-    'Tarih',
-    'Coğrafya',
-    'İngilizce'
+    'Matematik', 'Türkçe', 'Fizik', 'Kimya',
+    'Biyoloji', 'Tarih', 'Coğrafya', 'Felsefe',
+    'İngilizce', 'Din Kültürü', 'Diğer'
   ];
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+    final hw = HomeworkItem(
+      title: _titleController.text.trim(),
+      subject: _selectedSubject,
+      description: _descController.text.trim().isEmpty
+          ? null
+          : _descController.text.trim(),
+      dueDate: _dueDate,
+      priority: _priority,
+    );
+    await context.read<HomeworkProvider>().addHomework(hw);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ThemeColors.surface,
-      appBar: AppBar(
-        backgroundColor: ThemeColors.surface,
-        elevation: 0,
-        title: const Text('Yeni Ödev Ekle', style: TextStyle(color: ThemeColors.onSurface, fontWeight: FontWeight.bold)),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ThemeColors.onSurface),
-          onPressed: () => Navigator.pop(context),
-        ),
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 20, right: 20, top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: ThemeColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Ders', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: ThemeColors.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _selectedSubject,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    items: _subjects.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedSubject = val);
-                    },
+                  const Text(
+                    'Yeni Ödev Ekle',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary),
                   ),
-                  const SizedBox(height: 14),
-
-                  TextFormField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Ödev / Görev Başlığı',
-                      hintText: 'Örn: Sayfa 120-125 Test 3 ve 4',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.assignment_outlined, color: ThemeColors.primary),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextFormField(
-                    controller: _deadlineController,
-                    decoration: const InputDecoration(
-                      labelText: 'Teslim Tarihi & Saati',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.alarm, color: ThemeColors.secondary),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  TextFormField(
-                    controller: _detailController,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      labelText: 'Ödev Detayı & Öğretmen Notu',
-                      hintText: 'Çözümler deftere yapılacak, grafikler çizilecek...',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  const Text('Öncelik Seviyesi', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: ThemeColors.onSurfaceVariant)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: ['Düşük', 'Normal', 'Acil 🔥'].map((p) {
-                      final selected = _priority == p;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(p),
-                          selected: selected,
-                          onSelected: (_) => setState(() => _priority = p),
-                          selectedColor: p.contains('Acil') ? ThemeColors.errorContainer : ThemeColors.primary.withOpacity(0.15),
-                          labelStyle: TextStyle(
-                            color: p.contains('Acil') ? ThemeColors.onErrorContainer : (selected ? ThemeColors.primary : ThemeColors.onSurfaceVariant),
-                            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Ödev listeye kaydedildi!'),
-                      backgroundColor: Colors.teal,
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ThemeColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Ödev Başlığı *',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.assignment),
                 ),
-                icon: const Icon(Icons.check),
-                label: const Text('Ödevi Kaydet', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                validator: (v) =>
+                    v == null || v.trim().isEmpty ? 'Başlık gerekli' : null,
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _selectedSubject,
+                decoration: const InputDecoration(
+                  labelText: 'Ders',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.book),
+                ),
+                items: _subjects
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedSubject = v!),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descController,
+                maxLines: 2,
+                decoration: const InputDecoration(
+                  labelText: 'Açıklama (isteğe bağlı)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.notes),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Priority
+              const Text('Öncelik:',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  for (final p in HomeworkPriority.values)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(_priorityLabel(p)),
+                          selected: _priority == p,
+                          selectedColor: _priorityColor(p).withOpacity(0.2),
+                          onSelected: (_) => setState(() => _priority = p),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Due date
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _dueDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (picked != null) setState(() => _dueDate = picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade400),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today, color: AppColors.primary),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Teslim Tarihi: ${_dueDate.day}/${_dueDate.month}/${_dueDate.year}',
+                        style: const TextStyle(fontSize: 15),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _save,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Kaydet',
+                          style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  String _priorityLabel(HomeworkPriority p) {
+    switch (p) {
+      case HomeworkPriority.low: return 'Düşük';
+      case HomeworkPriority.medium: return 'Orta';
+      case HomeworkPriority.high: return 'Yüksek';
+    }
+  }
+
+  Color _priorityColor(HomeworkPriority p) {
+    switch (p) {
+      case HomeworkPriority.low: return Colors.green;
+      case HomeworkPriority.medium: return Colors.orange;
+      case HomeworkPriority.high: return Colors.red;
+    }
   }
 }
